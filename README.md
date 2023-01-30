@@ -4,6 +4,7 @@
 Photos](https://www.synology.com/en-global/dsm/feature/photos) album
 full-screen slideshow for Raspberry Pi.
 
+![](doc/Slideshow.png "Extra space gets blurry background")
 
 ## What?
 
