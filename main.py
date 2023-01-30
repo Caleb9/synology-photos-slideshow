@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 
 import datetime
-import io
 import sys
 import tkinter.ttk
 import typing
 
-import PIL.Image
-import PIL.ImageFilter
-import PIL.ImageTk
 import httpx
+import PIL.ImageTk
 
-import coordinate_calculator
+import image_processor
+import get_photo_thread
 import slideshow
 import synology_photos_client
 
 
 class App(tkinter.Tk):
+    MONITOR_LOOP_INTERVAL = 100
+
     def __init__(
             self,
             slideshow_: slideshow.Slideshow,
@@ -29,33 +29,28 @@ class App(tkinter.Tk):
         self._photo_change_interval = datetime.timedelta(seconds=photo_change_interval_in_seconds)
         self._datetime_now = datetime_now
 
+        self._image_processor = image_processor.ImageProcessor((self.winfo_screenwidth(), self.winfo_screenheight()))
         self._label = tkinter.ttk.Label(self, background="black")
         self._label.pack(side="bottom", fill="both", expand=1)
         # For displaying errors
         self._label["foreground"] = "white"
-        self._screen_size = self.winfo_screenwidth(), self.winfo_screenheight()
-        self._photo = None
-
-    MONITOR_LOOP_INTERVAL = 100
+        self._photo: typing.Optional[PIL.ImageTk.PhotoImage] = None
 
     def start_slideshow(self) -> "App":
-        self._monitor(
-            self._start_get_next_photo_thread(),
-            datetime.datetime.min)
+        self._monitor(datetime.datetime.min,
+                      self._start_get_next_photo_thread())
         return self
-
-    def _start_get_next_photo_thread(self) -> slideshow.GetNextPhotoThread:
-        return slideshow.GetNextPhotoThread.start_get_next_photo_thread(self._slideshow)
 
     def _monitor(
             self,
-            thread: slideshow.GetNextPhotoThread,
-            last_photo_change: datetime.datetime) -> None:
+            last_photo_change: datetime.datetime,
+            thread: get_photo_thread.GetPhotoThread) -> None:
         def schedule_next_iteration() -> None:
-            self.after(self.MONITOR_LOOP_INTERVAL, lambda: self._monitor(thread, last_photo_change))
+            self.after(self.MONITOR_LOOP_INTERVAL,
+                       lambda: self._monitor(last_photo_change, thread))
 
         if thread.is_alive():
-            # Next photo is still being downloaded
+            # Next photo is still being downloaded or converted to PhotoImage
             schedule_next_iteration()
             return
 
@@ -66,61 +61,34 @@ class App(tkinter.Tk):
             # Retry after regular photo change interval (here expressed in milliseconds)
             self.after(
                 self._photo_change_interval.seconds * 1000,
-                lambda: self._monitor(self._start_get_next_photo_thread(), self._datetime_now()))
+                lambda: self._monitor(self._datetime_now(), self._start_get_next_photo_thread()))
             return
 
-        # Current photo display time so far, corrected by monitor loop interval
-        current_photo_display_time = \
-            self._datetime_now() - last_photo_change + datetime.timedelta(milliseconds=self.MONITOR_LOOP_INTERVAL)
-        if current_photo_display_time < self._photo_change_interval:
-            # Current photo is still showing. Wait for another 100 ms.
+        if self._datetime_now() - last_photo_change < self._photo_change_interval:
+            # Current photo is still being displayed. Wait for another 100 ms.
             schedule_next_iteration()
             return
         # Next photo is ready and current photo has been shown for required duration. Show next photo and start fetching
-        # subsequent one immediately.
-        self._show_image(thread.image_bytes)
+        # subsequent one in the background.
+        self._show_image(thread.photo_image)
         last_photo_change = self._datetime_now()
         thread = self._start_get_next_photo_thread()
         schedule_next_iteration()
 
-    def _show_image(self, image_bytes: bytes) -> None:
+    def _start_get_next_photo_thread(self) -> get_photo_thread.GetPhotoThread:
+        return get_photo_thread.GetPhotoThread.start_get_next_photo_thread(self._slideshow,
+                                                                           self._image_processor)
+
+    def _show_image(self, photo_image: PIL.ImageTk.PhotoImage) -> None:
         self._label["text"] = None
-        result = self._bytes_to_photo_image(image_bytes)
-        if isinstance(result, Exception):
-            self._show_error(result)
-            return
         # We need to hold a reference to PhotoImage, else it won't show up. See https://stackoverflow.com/a/15216402
-        self._photo = result
+        self._photo = photo_image
         self._label["image"] = self._photo
 
     def _show_error(self, error: Exception) -> None:
         self._label["image"] = b""
         self._label["anchor"] = "center"
         self._label["text"] = str(error)
-
-    def _bytes_to_photo_image(
-            self,
-            image_bytes: bytes) -> typing.Union[PIL.ImageTk.PhotoImage, Exception]:
-        screen_size = self._screen_size
-        try:
-            with PIL.Image.open(io.BytesIO(image_bytes)) as image:
-                image_size = image.width, image.height
-                cropped_part_coordinates = coordinate_calculator.find_part_that_can_fit_to_window(screen_size,
-                                                                                                  image_size)
-                cropped_width = cropped_part_coordinates[2] - cropped_part_coordinates[0]
-                cropped_height = cropped_part_coordinates[3] - cropped_part_coordinates[1]
-                zoomed_coordinates = coordinate_calculator.zoom(screen_size, (cropped_width, cropped_height))
-                with image.crop(cropped_part_coordinates) as screen_part, \
-                        screen_part.resize(zoomed_coordinates) as zoom, \
-                        zoom.filter(PIL.ImageFilter.GaussianBlur(50)) as background, \
-                        image.resize(coordinate_calculator.scale(screen_size, image_size)) as foreground:
-                    background.putalpha(200)
-                    background.paste(
-                        foreground,
-                        coordinate_calculator.center_box(screen_size, (foreground.width, foreground.height)))
-                    return PIL.ImageTk.PhotoImage(background)
-        except PIL.UnidentifiedImageError as error:
-            return error
 
 
 help_message = f"""Provide the following arguments:

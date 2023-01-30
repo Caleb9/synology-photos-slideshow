@@ -1,30 +1,4 @@
-import threading
-import typing
-
 import synology_photos_client
-
-
-class GetNextPhotoThread(threading.Thread):
-    def __init__(self, slideshow: "Slideshow"):
-        super(GetNextPhotoThread, self).__init__(daemon=True)
-        self.image_bytes: bytes = b""
-        self.error: typing.Optional[Exception] = None
-        self.slideshow = slideshow
-
-    def run(self) -> None:
-        try:
-            self.image_bytes = self.slideshow.get_next_photo()
-        except Exception as error:
-            self.error = error
-
-    def is_failed(self) -> bool:
-        return self.error is not None
-
-    @staticmethod
-    def start_get_next_photo_thread(slideshow: "Slideshow") -> "GetNextPhotoThread":
-        result_thread = GetNextPhotoThread(slideshow)
-        result_thread.start()
-        return result_thread
 
 
 class Slideshow:
