@@ -37,8 +37,8 @@ Internet, or if you're running this setup in an un-trusted LAN
 3. Check "Enable share link" option
 4. Set Privacy Settings to "Public - Anyone with the link can view"
 5. Do NOT enable Link Protection - support for password protection
-   might get implemented in future, for now the assumption is that the
-   NAS and Pi are on the same *private* LAN.
+   might get implemented in the future, for now the assumption is that
+   the NAS and Pi are on the same *private* LAN.
 7. Copy the Share Link somewhere - you'll need it when running the
    slideshow app on Raspberry Pi
 6. Click Save
