@@ -15,7 +15,7 @@ import synology_photos_client
 
 
 class App(tkinter.Tk):
-    MONITOR_LOOP_INTERVAL = 100
+    _MONITOR_LOOP_INTERVAL = 500
 
     def __init__(
             self,
@@ -46,7 +46,7 @@ class App(tkinter.Tk):
             last_photo_change: datetime.datetime,
             thread: get_photo_thread.GetPhotoThread) -> None:
         def schedule_next_iteration() -> None:
-            self.after(self.MONITOR_LOOP_INTERVAL,
+            self.after(self._MONITOR_LOOP_INTERVAL,
                        lambda: self._monitor(last_photo_change, thread))
 
         if thread.is_alive():
@@ -65,7 +65,7 @@ class App(tkinter.Tk):
             return
 
         if self._datetime_now() - last_photo_change < self._photo_change_interval:
-            # Current photo is still being displayed. Wait for another 100 ms.
+            # Current photo is still being displayed. Wait for another 500 ms.
             schedule_next_iteration()
             return
         # Next photo is ready and current photo has been shown for required duration. Show next photo and start fetching

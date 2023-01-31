@@ -2,6 +2,8 @@ import synology_photos_client
 
 
 class Slideshow:
+    _PHOTOS_BATCH_SIZE = 10
+
     def __init__(
             self,
             photos_client: synology_photos_client.PhotosClient):
@@ -9,8 +11,6 @@ class Slideshow:
         self._album_offset = 0
         self._photos_batch: list[synology_photos_client.PhotosClient.PhotoDto] = []
         self._batch_photo_index = 0
-
-    _PHOTOS_BATCH_SIZE = 10
 
     def get_next_photo(self) -> bytes:
         if self._slideshow_ended():
