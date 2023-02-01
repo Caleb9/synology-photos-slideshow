@@ -171,7 +171,7 @@ Mini](https://www.adafruit.com/product/5038).
 For my digital photo frame project I attached a light sensor to Pi's
 GPIO to adjust monitor's brightness automatically depending on ambient
 light. [TSL2591](https://www.adafruit.com/product/1980) is an example
-of such sensor - it is fairly easy to write a Python script that
-executes `ddcutil` (package available in Raspbian OS) to set monitor's
-brightness. I am planning to make the code available and describe the
-setup in the future.
+of such sensor. Check out my
+[auto-brightness-rpi-tsl2591](https://github.com/Caleb9/auto-brightness-rpi-tsl2591)
+project to add automatic brightness control to your digital photo
+frame.
