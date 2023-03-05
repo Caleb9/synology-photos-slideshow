@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
+import argparse
 import datetime
+from random import randrange
 import sys
 import tkinter.ttk
 import typing
 
-import httpx
 import PIL.ImageTk
+import httpx
 
-import image_processor
 import get_photo_thread
+import image_processor
 import slideshow
 import synology_photos_client
 
@@ -19,16 +21,19 @@ class App(tkinter.Tk):
 
     def __init__(
             self,
-            slideshow_: slideshow.Slideshow,
-            photo_change_interval_in_seconds: int,
-            datetime_now: typing.Callable[[], datetime.datetime]):
+            photos_client: synology_photos_client.PhotosClient,
+            photo_change_interval_in_seconds: float,
+            datetime_now: typing.Callable[[], datetime.datetime],
+            randrange_: typing.Callable[[int, int], int]):
         super(App, self).__init__()
         self.attributes("-fullscreen", True)
 
-        self._slideshow = slideshow_
+        self._photos_client = photos_client
         self._photo_change_interval = datetime.timedelta(seconds=photo_change_interval_in_seconds)
         self._datetime_now = datetime_now
+        self._randrange = randrange_
 
+        self._slideshow: slideshow.Slideshow = None
         self._image_processor = image_processor.ImageProcessor((self.winfo_screenwidth(), self.winfo_screenheight()))
         self._label = tkinter.ttk.Label(self, background="black")
         self._label.pack(side="bottom", fill="both", expand=1)
@@ -36,7 +41,16 @@ class App(tkinter.Tk):
         self._label["foreground"] = "white"
         self._photo: typing.Optional[PIL.ImageTk.PhotoImage] = None
 
-    def start_slideshow(self) -> "App":
+    def start_slideshow(self, start_from_random_photo: bool) -> "App":
+        initial_album_offset = 0
+        if start_from_random_photo:
+            try:
+                item_count = self._photos_client.get_album_contents_count()
+                initial_album_offset = self._randrange(0, item_count)
+            except Exception as error:
+                eprint(f"[{self._datetime_now()}] Error (cannot start from random photo): {error}")
+        self._slideshow = slideshow.Slideshow(self._photos_client, initial_album_offset)
+
         self._monitor(datetime.datetime.min,
                       self._start_get_next_photo_thread())
         return self
@@ -57,7 +71,6 @@ class App(tkinter.Tk):
         if thread.is_failed():
             # Getting next photo failed
             self._show_error(thread.error)
-            print(f"[{self._datetime_now()}] {thread.error}")
             # Retry after regular photo change interval (here expressed in milliseconds)
             self.after(
                 self._photo_change_interval.seconds * 1000,
@@ -86,45 +99,57 @@ class App(tkinter.Tk):
         self._label["image"] = self._photo
 
     def _show_error(self, error: Exception) -> None:
+        eprint(f"[{self._datetime_now()}] {error}")
         self._label["image"] = b""
         self._label["anchor"] = "center"
         self._label["text"] = str(error)
 
 
-help_message = f"""Provide the following arguments:
-    share_link  [REQUIRED] Link to a publicly shared album on Synology Photos.
-                Note that the album's privacy settings must be set to Public
-                and link password protection must be disabled. 
-    interval    [OPTIONAL] Photo change interval in seconds.
-                Must be a positive number.
-                If not specified photos will change every 20 seconds
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+        
 
-Example:
-    {sys.argv[0]} https://my.nas/is/sharing/ABcd1234Z 30
-"""
+def parse_arguments(argv: [str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="synology-photos-slideshow.pex",
+                                     description="Synology Photos album slideshow",
+                                     epilog="Find new versions and more information on "
+                                            "https://github.com/Caleb9/synology-photos-slideshow")
+    parser.add_argument("share_link",
+                        help="Link to a publicly shared album on Synology Photos. "
+                             "Note that the album's privacy settings must be set to Public "
+                             "and link password protection must be disabled.")
+
+    def valid_interval(x) -> float:
+        try:
+            if float(x) < 1:
+                raise argparse.ArgumentTypeError("%s is not greater or equal to 1" % x)
+            return float(x)
+        except ValueError:
+            raise argparse.ArgumentTypeError("%s is not a number" % x)
+
+    parser.add_argument("-i",
+                        "--interval",
+                        help="Photo change interval in seconds. Must be greater or equal to 1. "
+                             "If not specified photos will change every 20 seconds",
+                        type=valid_interval,
+                        default=20)
+    parser.add_argument("--random-start",
+                        help="Initialize slideshow at randomly selected photo",
+                        action="store_true")
+    return parser.parse_args(argv)
 
 
 def main(argv: [str]) -> None:
-    if len(argv) < 1:
-        print(help_message)
-        sys.exit(1)
-    share_link = argv[0]
-    photo_change_interval_in_seconds = 20
-    if len(argv) > 1:
-        photo_change_interval_in_seconds = int(argv[1])
-        if photo_change_interval_in_seconds < 1:
-            print("Invalid interval value. Must be a positive number")
-            sys.exit(2)
+    args = parse_arguments(argv)
 
     with httpx.Client(timeout=20) as http_client:
-        App(
-            slideshow.Slideshow(
-                synology_photos_client.PhotosClient(
-                    http_client,
-                    share_link)),
-            photo_change_interval_in_seconds,
-            datetime.datetime.now) \
-            .start_slideshow() \
+        photos_client = synology_photos_client.PhotosClient(http_client,
+                                                            args.share_link)
+        App(photos_client,
+            args.interval,
+            datetime.datetime.now,
+            randrange) \
+            .start_slideshow(args.random_start) \
             .mainloop()
 
 

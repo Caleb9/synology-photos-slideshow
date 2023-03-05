@@ -6,14 +6,20 @@ class Slideshow:
 
     def __init__(
             self,
-            photos_client: synology_photos_client.PhotosClient):
+            photos_client: synology_photos_client.PhotosClient,
+            initial_album_offset = 0):
         self._photos_client = photos_client
+        self._initial_album_offset = initial_album_offset
         self._album_offset = 0
         self._photos_batch: list[synology_photos_client.PhotosClient.PhotoDto] = []
         self._batch_photo_index = 0
 
     def get_next_photo(self) -> bytes:
-        if self._slideshow_ended():
+        if self._initial_album_offset is not None:
+            self._album_offset = self._initial_album_offset
+            # We only use initial album offset for first run through the album.
+            self._initial_album_offset = None
+        elif  self._slideshow_ended():
             self._album_offset = 0
         if self._need_next_batch():
             self._photos_batch = self._photos_client.get_album_contents(self._album_offset, self._PHOTOS_BATCH_SIZE)

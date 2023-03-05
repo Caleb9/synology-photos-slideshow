@@ -95,7 +95,7 @@ Wait for the build to finish. A new file
 
 Display help message:
 ```
-./synology-photos-slideshow.pex
+./synology-photos-slideshow.pex -h
 ```
 
 Run the app in X server:
@@ -127,7 +127,7 @@ xset -dpms
 setxkbmap -option terminate:ctrl_alt_bksp
 
 # Start Synology Photos slideshow app
-/home/pi/synology-photos-slideshow/synology-photos-slideshow.pex "SHARING_LINK" 30 > /tmp/synology-photos-slideshow.log 2>&1
+/home/pi/synology-photos-slideshow/synology-photos-slideshow.pex "SHARING_LINK" --interval 30 > /tmp/synology-photos-slideshow.log 2>&1
 ```
 
 The output of the program will be written to
@@ -164,6 +164,14 @@ A proper digital photo frame doesn't run 24/7. Shutdown can be
 scheduled in software only, but for startup you'll need a hardware
 solution, e.g. for Raspberry Pi Zero I'm using [Witty Pi 3
 Mini](https://www.adafruit.com/product/5038).
+
+
+### Start Slideshow From Random Photo
+
+If the album is very large, and the startup-shutdown schedule is
+short, potentially the slideshow might never display some of the later
+photos in the album. The `--random-start` option solves the problem by
+starting the slideshow at randomly picked photo.
 
 
 ### Auto Brightness

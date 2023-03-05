@@ -23,6 +23,23 @@ class PhotosClient:
         id: int
         thumbnail: "PhotosClient.Thumbnail"
 
+    def get_album_contents_count(self) -> int:
+        self._get_sharing_sid_cookie()
+
+        data = {
+            "api": "SYNO.Foto.Browse.Album",
+            "method": "get",
+            "version": 1,
+        }
+        response = self._http_client.post(self._api_url,
+                                          data=data,
+                                          headers=[("X-SYNO-SHARING", self._passphrase)])
+        response_content = response.json()
+        if not response_content["success"]:
+            raise Exception(f"Getting album contents count resulted with API error {response_content['error']}")
+
+        return response_content["data"]["list"][0]["item_count"]
+
     def get_album_contents(self, offset: int, limit: int) -> list[PhotoDto]:
         self._get_sharing_sid_cookie()
 
