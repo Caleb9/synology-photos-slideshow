@@ -4,6 +4,8 @@
 #
 #    pip-compile --output-file=- --resolver=backtracking requirements/dev.in
 #
+--extra-index-url https://www.piwheels.org/simple
+
 anyio==3.6.2
     # via httpcore
 build==0.10.0
@@ -26,7 +28,7 @@ idna==3.4
     #   rfc3986
 packaging==23.0
     # via build
-pex==2.1.126
+pex==2.1.130
     # via -r requirements/dev.in
 pillow==9.4.0
     # via -r requirements/common.in
@@ -45,7 +47,7 @@ tomli==2.0.1
     # via
     #   build
     #   pyproject-hooks
-wheel==0.38.4
+wheel==0.40.0
     # via
     #   -r requirements/dev.in
     #   pip-tools

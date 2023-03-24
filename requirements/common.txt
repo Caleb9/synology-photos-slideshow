@@ -4,6 +4,8 @@
 #
 #    pip-compile --output-file=- --resolver=backtracking requirements/common.in
 #
+--extra-index-url https://www.piwheels.org/simple
+
 anyio==3.6.2
     # via httpcore
 certifi==2022.12.7
