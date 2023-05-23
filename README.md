@@ -1,3 +1,11 @@
+# Archive / Replacement Note
+
+There is a new version of this app (with extra features such as
+photo transition effect) at
+[syno-photo-frame](https://github.com/Caleb9/syno-photo-frame)
+repository.
+
+
 # synology-photos-slideshow
 
 [Synology
